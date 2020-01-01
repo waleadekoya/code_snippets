@@ -137,9 +137,6 @@ models_template = '''
 from {}.{} import db
 '''
 
-# https://exploreflask.com/en/latest/configuration.html
-# https://exploreflask.com/en/latest/blueprints.html
-
 
 class MakeFlaskProjectDirectories:
 
