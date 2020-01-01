@@ -333,5 +333,3 @@ MakeFlaskProjectDirectories(project_name='my_app2',
                             app_name='some_app',
                             modular_apps=True,
                             modular_app_names=['test'])
-
-# https://hackersandslackers.com/flask-application-factory/
