@@ -239,8 +239,6 @@ class PythonJobsAggregator:
             advertiser = advertiser_tag.text.strip() if advertiser_tag is not None else None
             location = next(item for item in location_options if item is not None)
             job_type = job_type_tag.div.text if job_type_tag is not None else None
-            # print('Title:', title, 'Salary:', salary, 'Location:', location, 'Url:', job_link,
-            #       'advertiser:', advertiser, 'Type:', job_type)
             self.append_to_pandas_df(title, salary, location, job_link, advertiser, job_type, description)
 
 
