@@ -22,7 +22,8 @@ def timer(func):
     return wrapper
 
 
-class PythonJobs:
+class PythonJobsAggregator:
+    
     JOB_COUNT = 0
     RESULTS_PER_PAGE = 25
     CSV_FILE = "{}_jobs_{}.csv"
@@ -244,4 +245,4 @@ class PythonJobs:
 
 
 if __name__ == "__main__":
-    PythonJobs(keyword='python', starting_salary=70000)
+    PythonJobsAggregator(keyword='python', starting_salary=85000)
