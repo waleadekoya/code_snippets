@@ -20,11 +20,11 @@ def timer(func):
         duration = end - start
         print("{} completed in {:.4f} seconds".format(func.__name__, duration))
         return value
-
     return wrapper
 
 
 class JobsAPI:
+    
     JOB_COUNT = 0
     RESULTS_PER_PAGE = 25
     CSV_FILE = "{}_jobs_{}.csv"
@@ -54,10 +54,6 @@ class JobsAPI:
 
     @timer
     def __init__(self, keyword, starting_salary=45000):
-        # self.reed_results_queue = queue.Queue()  # to get results from thread
-        # self.indeed_results_queue = queue.Queue()
-        # self.total_jobs_results_queue = queue.Queue()
-        # self.jobserve_results_queue = queue.Queue()
         self.reed_results_queue = Queue()
         self.indeed_results_queue = Queue()
         self.total_jobs_results_queue = Queue()
@@ -70,25 +66,6 @@ class JobsAPI:
             self.search_str = self.keyword
         self.starting_salary = starting_salary
         self.df = self.initialise_pandas_df()
-        # reed_links = Thread(target=self.initialise_reed_links, args=())
-        # indeed_links = Thread(target=self.initialise_indeed_links, args=())
-        # total_job_links = Thread(target=self.initialise_total_jobs_links, args=())
-        # jobserve_job_links = Thread(target=self.initialise_jobserve_links, args=())
-
-        # reed_links.start()
-        # indeed_links.start()
-        # total_job_links.start()
-        # jobserve_job_links.start()
-        #
-        # reed_links.join()
-        # indeed_links.join()
-        # total_job_links.join()
-        # jobserve_job_links.join()
-
-        # self._reed_job_links = self.reed_results_queue.get()
-        # self._indeed_job_links = self.indeed_results_queue.get()
-        # self._total_jobs_links = self.total_jobs_results_queue.get()
-        # self._jobserve_job_links = self.jobserve_results_queue.get()
 
         self.reed_job_links = self.initialise_reed_links()
         self.indeed_job_links = self.initialise_indeed_links()
@@ -101,12 +78,6 @@ class JobsAPI:
         indeed = Process(target=self.get_indeed_jobs, args=())
         reed = Process(target=self.get_reed_jobs, args=())
         total_jobs = Process(target=self.get_total_jobs, args=())
-        # jobserve_jobs = Process(target=self.get_jobserve_jobs, args=())
-
-        # indeed = Thread(target=self.get_indeed_jobs, args=())
-        # reed = Thread(target=self.get_reed_jobs, args=())
-        # total_jobs = Thread(target=self.get_total_jobs, args=())
-        # jobserve_jobs = Thread(target=self.get_jobserve_jobs, args=())
 
         indeed.start()
         reed.start()
@@ -139,22 +110,6 @@ class JobsAPI:
     @timer
     def get_job_counts(self):
         print("Total jobs found: {}; Total relevant jobs: {}".format(self.total_links, self.JOB_COUNT))
-
-    # @property
-    # def reed_job_links(self):
-    #     return self._reed_job_links
-    #
-    # @property
-    # def indeed_job_links(self):
-    #     return self._indeed_job_links
-    #
-    # @property
-    # def total_jobs_links(self):
-    #     return self._total_jobs_links
-    #
-    # @property
-    # def jobserve_jobs_links(self):
-    #     return self._jobserve_job_links
 
     @staticmethod
     def initialise_pandas_df():
@@ -222,7 +177,6 @@ class JobsAPI:
         hrefs = (soup.find_all('div', attrs={'class': 'jobListHeaderPanel'}) for soup in soups)
         flat_hrefs_list = list(itertools.chain.from_iterable(hrefs))
         result = [self.JOBSERVE_BASE_URL + div.a['href'] for div in flat_hrefs_list]
-        # self.jobserve_results_queue.put(result)
         return result
 
     @timer
@@ -233,7 +187,6 @@ class JobsAPI:
         hrefs = (soup.find_all('h3', attrs={'class': 'title'}) for soup in soups)
         flat_hrefs_list = list(itertools.chain.from_iterable(hrefs))
         result = [self.REED_BASE_URL + div.a['href'] for div in flat_hrefs_list]
-        # self.reed_results_queue.put(result)
         return result
 
     @timer
@@ -244,7 +197,6 @@ class JobsAPI:
         hrefs = (total_soup.find_all('div', {'class': 'job-title'}) for total_soup in total_soups)
         flat_hrefs_list = list(itertools.chain.from_iterable(hrefs))
         result = [div.a['href'] for div in flat_hrefs_list]
-        # self.total_jobs_results_queue.put(result)
         return result
 
     @timer
@@ -314,7 +266,6 @@ class JobsAPI:
     @timer
     def get_jobserve_jobs(self):
         for job_link in self.jobserve_job_links:
-            # job_link = 'https://www.jobserve.com/gb/en/W9FF1719423CB5D5B1B.jsjob'
             soup = self.make_soup(job_link)
             description = soup.find('div', {'class': "md_skills"}).text
             title = soup.find('h1', {'id': 'positiontitle'}).text
