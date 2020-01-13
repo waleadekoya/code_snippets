@@ -23,10 +23,10 @@ def timer(func):
 
 
 class JobsAPI:
-    
     JOB_COUNT = 0
     RESULTS_PER_PAGE = 25
     CSV_FILE = "{}_jobs_{}.csv"
+    XLSX_FILE = "{}_jobs_{}.xlsx"
     TIME_FORMAT = "%d-%m-%Y-%H-%M-%S"
 
     INDEED_BASE_URL = 'https://www.indeed.co.uk'
@@ -87,13 +87,14 @@ class JobsAPI:
         reed.join()
         total_jobs.join()
 
-        self.write_to_cvs()
+        self.write_to_disk()
         self.get_job_counts()
 
     @timer
-    def write_to_cvs(self):
-        self.df.to_csv(self.CSV_FILE.format(self.keyword,
-                                            datetime.utcnow().strftime(self.TIME_FORMAT)),
+    def write_to_disk(self):
+        self.df.to_excel(self.XLSX_FILE.format(self.keyword, datetime.utcnow().strftime(self.TIME_FORMAT)),
+                         index=False)
+        self.df.to_csv(self.CSV_FILE.format(self.keyword, datetime.utcnow().strftime(self.TIME_FORMAT)),
                        index=False, encoding='utf-8')
 
     @timer
@@ -162,20 +163,20 @@ class JobsAPI:
 
     @timer
     def initialise_reed_links(self):
-        urls = [self.REED_DYNAMIC_URL.format(self.keyword, page, self.starting_salary)
-                for page in range(1, self.get_reed_page_count() + 1)]
-        soups = [self.make_soup(url) for url in urls]
-        hrefs = [soup.find_all('h3', attrs={'class': 'title'}) for soup in soups]
+        urls = (self.REED_DYNAMIC_URL.format(self.keyword, page, self.starting_salary)
+                for page in range(1, self.get_reed_page_count() + 1))
+        soups = (self.make_soup(url) for url in urls)
+        hrefs = (soup.find_all('h3', attrs={'class': 'title'}) for soup in soups)
         flat_hrefs_list = list(itertools.chain.from_iterable(hrefs))
         result = [self.REED_BASE_URL + div.a['href'] for div in flat_hrefs_list]
         self.reed_results_queue.put(result)
 
     @timer
     def initialise_total_jobs_links(self):
-        urls = [self.TOTAL_JOBS_DYNAMIC_URL.format(self.keyword, self.starting_salary, page_no)
-                for page_no in range(1, self.get_total_jobs_page_count() + 1)]
-        total_soups = [self.make_soup(link) for link in urls]
-        hrefs = [total_soup.find_all('div', {'class': 'job-title'}) for total_soup in total_soups]
+        urls = (self.TOTAL_JOBS_DYNAMIC_URL.format(self.keyword, self.starting_salary, page_no)
+                for page_no in range(1, self.get_total_jobs_page_count() + 1))
+        total_soups = (self.make_soup(link) for link in urls)
+        hrefs = (total_soup.find_all('div', {'class': 'job-title'}) for total_soup in total_soups)
         flat_hrefs_list = list(itertools.chain.from_iterable(hrefs))
         result = [div.a['href'] for div in flat_hrefs_list]
         self.total_jobs_results_queue.put(result)
