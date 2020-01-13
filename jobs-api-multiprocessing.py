@@ -3,11 +3,10 @@ import requests
 import pandas as pd
 
 from threading import Thread
-from multiprocessing import Pool, Queue, Manager, Process
+from multiprocessing import Queue Process
 import functools
 import time
 import itertools
-import queue
 from datetime import datetime
 
 
