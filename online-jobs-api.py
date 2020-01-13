@@ -22,7 +22,7 @@ def timer(func):
     return wrapper
 
 
-class PythonJobsAggregator:
+class JobsAPI:
     
     JOB_COUNT = 0
     RESULTS_PER_PAGE = 25
@@ -243,4 +243,4 @@ class PythonJobsAggregator:
 
 
 if __name__ == "__main__":
-    PythonJobsAggregator(keyword='python', starting_salary=85000)
+    JobsAPI(keyword='python', starting_salary=85000)
