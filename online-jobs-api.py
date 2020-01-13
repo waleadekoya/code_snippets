@@ -18,7 +18,6 @@ def timer(func):
         duration = end - start
         print("{} completed in {:.4f} seconds".format(func.__name__, duration))
         return value
-
     return wrapper
 
 
