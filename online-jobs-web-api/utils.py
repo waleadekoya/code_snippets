@@ -49,7 +49,6 @@ class DataFrame:
 
     @staticmethod
     def make_variable_name(variable):
-        # ref: 'https://stackoverflow.com/a/15361037'
         for name in globals():
             if eval(name) == variable:
                 return str(name)
