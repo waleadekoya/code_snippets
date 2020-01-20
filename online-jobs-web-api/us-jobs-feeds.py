@@ -10,7 +10,6 @@ class IndeedUSJobs(Interfaces, PageCounter):
     @timer
     def __init__(self, keyword, staring_salary, contract_only):
         super().__init__(keyword, staring_salary, contract_only)
-        self.all_jobs = []
         engine = db_connect()
         create_table(engine)
         self.Session = sessionmaker(bind=engine)
@@ -72,7 +71,6 @@ class IndeedUSJobs(Interfaces, PageCounter):
             job_data['advertiser'] = advertiser
             job_data['job_type'] = job_type
             self.add_to_db(job_data)
-            self.all_jobs.append(job_data)
 
 
 if __name__ == "__main__":
