@@ -3,11 +3,17 @@ import sys
 
 
 class Logger:
-
     F_FORMAT_STR = '%(levelname)s: %(name)s: %(asctime)s: %(funcName)s: %(message)s'
     C_FORMAT_STR = '%(levelname)s: %(asctime)s: %(funcName)s: %(message)s'
     STD_FORMAT_STR = '%(name)s - %(levelname)s - %(asctime)s - %(message)s'
     DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+    
+    '''
+    Usage: log = Logger().logger
+    log.info('This is info only')
+    log.error('This is an error')
+    '''
+    
 
     '''
     Usage: log = Logger().logger
