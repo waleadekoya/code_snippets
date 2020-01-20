@@ -76,6 +76,7 @@ class IndeedUSJobs(Interfaces, PageCounter):
             location_tag = soup.find('div', {'class': 'icl-u-xs-mt--xs icl-u-textColor--secondary '
                                                       'jobsearch-JobInfoHeader-subtitle '
                                                       'jobsearch-DesktopStickyContainer-subtitle'})
+
             if self.search_str in str(title).lower() or self.search_str in str(description).lower():
                 location = location_tag.text.strip().splitlines()[-1].split('-')[
                     -1] if location_tag is not None else None
