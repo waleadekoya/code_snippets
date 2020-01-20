@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Integer, String
 from sqlalchemy_utils import database_exists, create_database
 
-from config import CONNECTION_STRING, db_name
+from config import CONNECTION_STRING
 
 DeclarativeBase = declarative_base()
 
@@ -13,7 +13,7 @@ def db_connect():
     Performs database connection using database settings from settings.py.
     Returns sqlalchemy engine instance
     """
-    create_database_if_not_exist(db_name)
+    create_database_if_not_exist()
     return create_engine(CONNECTION_STRING)
 
 
@@ -21,9 +21,9 @@ def create_table(engine):
     DeclarativeBase.metadata.create_all(engine)
 
 
-def create_database_if_not_exist(dbname):
+def create_database_if_not_exist():
     # https://stackoverflow.com/a/30971098
-    engine = create_engine('mysql://wale:omoyemiHouse14+@localhost/' + dbname)
+    engine = create_engine(str(CONNECTION_STRING.split('?')[0]))
     if not database_exists(engine.url):
         create_database(engine.url)
     print(database_exists(engine.url))

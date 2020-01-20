@@ -331,4 +331,4 @@ class MainWrapper(ReedJobs,
 
 
 if __name__ == "__main__":
-    MainWrapper('pmo', 85000, contract_only=True)
+    MainWrapper('python', 80000, contract_only=True)
