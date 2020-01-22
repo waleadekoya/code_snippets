@@ -10,7 +10,7 @@ DeclarativeBase = declarative_base()
 
 def db_connect():
     """
-    Performs database connection using database settings from settings.py.
+    Performs database connection using database settings from CONNECTION_STRING.py.
     Returns sqlalchemy engine instance
     """
     create_database_if_not_exist()
