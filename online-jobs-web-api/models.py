@@ -22,7 +22,6 @@ def create_table(engine):
 
 
 def create_database_if_not_exist():
-    # https://stackoverflow.com/a/30971098
     engine = create_engine(str(CONNECTION_STRING.split('?')[0]))
     if not database_exists(engine.url):
         create_database(engine.url)
