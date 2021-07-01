@@ -1,0 +1,174 @@
+import functools
+import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
+from multiprocessing.pool import ThreadPool
+from typing import Union, IO
+
+import pandas as pd
+from fuzzy_pandas import fuzzy_merge
+
+FORMAT = "%(asctime)-15s %(clientip)s %(user)-8s %(message)s"
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger("fuzzy_matching")
+
+
+def timer(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        value = func(*args, **kwargs)
+        end = time.time()
+        lapsed = end - start
+        duration = (
+            datetime(1, 1, 1) - timedelta(seconds=lapsed) if lapsed > 60 else lapsed
+        )
+        msg = (
+            f"{func.__name__} completed in {duration.hour} hours(s): "
+            f"{duration.minute} minute(s): {duration.second} second(s)"
+            if lapsed > 60
+            else f"{func.__name__} completed in {lapsed:.2f} seconds"
+        )
+        print("\n", msg)
+        return value
+
+    return wrapper
+
+
+@timer
+class FuzzyMatch:
+
+    def __call__(self, *args, **kwargs):
+        return FuzzyMatch(*args, **kwargs)
+
+    def __init__(
+        self,
+        *,
+        left_df: Union[pd.DataFrame, None, IO, str],
+        left_on: Union[str, list],
+        right_df: Union[pd.DataFrame, None, IO, str],
+        right_on: Union[str, list],
+        start_threshold: float = 1.0,
+        minimum_threshold: float = 0.79,
+        master: str = "left",
+    ):
+        self.master = master
+        self.right_df = self.get_dataframe(right_df)
+        self.right_on = right_on
+        self.left_df = self.get_dataframe(left_df)
+        self.left_on = left_on
+        self._threshold = start_threshold
+        self.minimum_threshold = minimum_threshold
+        self.final_output: list = []
+        self.result: Union[pd.DataFrame, None, IO, str] = None
+        self.left_shape = self.left_df.copy().shape[0]
+        self.convert_lookup_columns_to_string()
+        with ThreadPoolExecutor(max_workers=100) as executor:
+            executor.submit(self.run_iterations)
+
+    @staticmethod
+    def get_dataframe(file: Union[pd.DataFrame, None, IO, str]):
+        return (
+            file
+            if isinstance(file, pd.DataFrame)
+            else FileReader(file).data.drop_duplicates()
+        )
+
+    def run_async(self):
+        print(f"Processing fuzzy match at {(self._threshold * 100):.2f}%...")
+        pool = ThreadPool(processes=1)
+        async_result = pool.apply_async(self.run, ())
+        print(async_result.get())
+        return async_result.get().drop_duplicates(subset=[self.left_on, self.right_on])
+
+    def run_iterations(self):
+        current_iteration = self.run_async()
+
+        while True:
+
+            self._threshold -= 0.01
+            next_iteration = self.run_async()
+            self.final_output.append(pd.concat([current_iteration, next_iteration]))
+
+            current_iteration = next_iteration
+            if self._threshold <= self.minimum_threshold:
+                break
+
+        de_duplicated_col = self.left_on if self.master == "left" else self.right_on
+        self.result = pd.concat(self.final_output).drop_duplicates(
+            subset=[de_duplicated_col]
+        )
+        print(self.result.reset_index(drop=True))
+        self.get_output()
+
+    def get_output(self):
+        from datetime import datetime
+
+        now = datetime.now().strftime("%d-%m-%Y-%H-%M-%S")
+        return self.result.to_excel(f"output_{now}.xlsx", index=False)
+
+    def fuzzy_match(self, left_df: pd.DataFrame, right_df: pd.DataFrame):
+        return pd.concat(
+            fuzzy_merge(
+                left_df,
+                right_df,
+                left_on=self.left_on,
+                right_on=self.right_on,
+                threshold=self._threshold,
+                ignore_case=True,
+                ignore_nonalpha=True,
+                method=method,
+            ).assign(similarity_index=self._threshold)
+            for method in ["jaro"]
+        )
+
+    def run(self):
+        chunk_size = 5
+        return pd.concat(
+            self.fuzzy_match(self.left_df[chunk: (chunk + chunk_size)], self.right_df)
+            for chunk in range(0, self.left_shape, chunk_size)
+        ).reset_index(drop=True)
+
+    def convert_lookup_columns_to_string(self):
+        self.left_df[self.left_on] = self.left_df[self.left_on].astype(str)
+        self.right_df[self.right_on] = self.right_df[self.right_on].astype(str)
+
+
+class FileReader:
+    def __init__(self, file: Union[IO, str]):
+        import os
+
+        self.file = file
+        self.file_path = os.path.abspath(
+            os.path.join(os.path.join(os.path.dirname(__file__)), self.file)
+        )
+        self.file_extension = self.file.split(".")[-1]
+        self.data: pd.DataFrame = (
+            self.read_excel
+            if self.file_extension in ("xlsx", "xlsb")
+            else self.read_csv
+        )
+
+    @property
+    def read_excel(self):
+        return pd.read_excel(
+            self.file_path,
+            engine="openpyxl" if self.file_extension == "xlsx" else "pyxlsb",
+        )
+
+    @property
+    def read_csv(self):
+        return pd.concat(
+            chunk for chunk in pd.read_csv(self.file_path, chunksize=10_000)
+        )
+
+
+FuzzyMatch(
+    left_df="ListA.xlsx",
+    left_on="List A",
+    right_df="ListB.xlsx",
+    right_on="List B",
+    start_threshold=1.0,
+)
+
