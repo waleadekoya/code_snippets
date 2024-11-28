@@ -1,0 +1,125 @@
+from pyspark.sql import DataFrame
+from pyspark.sql.functions import (
+    col,
+    when,
+    lit,
+    expr,
+    udf,
+    round as spark_round,
+    array,
+    monotonically_increasing_id,
+)
+from pyspark.sql.types import FloatType
+import numpy as np
+
+
+def calculate_ric_values_spark(tcdr: DataFrame, ric_grid: DataFrame) -> DataFrame:
+    # Map asset classes
+    asset_class_map = {
+        "Corporate": "CORP_OTH",
+        "Banks": "BANKS & FI",
+        "Sovereigns": "SOVEREIGNS",
+        "Retail": "CORP_OTH",
+        "CRE": "CRE",
+    }
+    
+    asset_class_map_expr = "CASE " + " ".join(
+        [f"WHEN asset_class = '{k}' THEN '{v}'" for k, v in asset_class_map.items()]
+    ) + " ELSE asset_class END"
+    
+    ric_grid = ric_grid.withColumn("asset_class", expr(asset_class_map_expr))
+    ric_grid = ric_grid.withColumn(
+        "sector", when(col("sector").isNull(), lit("Other")).otherwise(col("sector"))
+    )
+    ric_grid = ric_grid.withColumn(
+        "group_crr", col("group_crr").cast("float").alias("group_crr")
+    )
+
+    ric_grid = ric_grid.withColumn(
+        "GRID_JOIN_KEY",
+        (col("asset_class") + col("sector") + col("group_crr").cast("string")),
+    )
+
+    # Process tcdr
+    tcdr = tcdr.withColumn(
+        "RESIDUAL_MATURITY_CAPPED",
+        when(col("RESIDUAL_MATURITY") > 365.25 * 25, lit(365.25 * 25)).otherwise(
+            col("RESIDUAL_MATURITY")
+        )
+        / 365.25,
+    )
+    tcdr = tcdr.withColumn(
+        "SECTOR",
+        when(col("IND_FCTR_NAME") != "Real Estate", lit("Other")).otherwise(
+            col("IND_FCTR_NAME")
+        ),
+    )
+    tcdr = tcdr.withColumn(
+        "ADJ_RATING_NEW",
+        expr(
+            "CAST(translate(replace(replace(ADJ_RATING_NEW, 'CRR', '*'), '*-*', '.*'), '0', '') AS float)"
+        ),
+    )
+    tcdr = tcdr.withColumn(
+        "GRID_JOIN_KEY",
+        col("ASSETCLASS") + col("SECTOR") + col("ADJ_RATING_NEW").cast("string"),
+    )
+
+    # Filter modeled data
+    tcdr = tcdr.withColumn(
+        "is_modelled", when(col("DEF_IND") == "MODELLED", lit(True)).otherwise(lit(False))
+    )
+    modeled_tcdr = tcdr.filter(col("is_modelled"))
+
+    requisite_cols = [
+        "GRID_JOIN_KEY",
+        "RESIDUAL_MATURITY_CAPPED",
+    ]
+
+    # Define UDF for interpolation
+    @udf(FloatType())
+    def interpolate_for_grid_factor(base_tenor, grid_tenor, grid_factor):
+        if not grid_tenor or not grid_factor:
+            return float("nan")
+        return float(np.interp(base_tenor, grid_tenor, grid_factor))
+
+    # Perform interpolation
+    interpolated = modeled_tcdr.join(
+        ric_grid,
+        on=["GRID_JOIN_KEY"],
+        how="left",
+    ).withColumn(
+        "interpolated_grid_factor",
+        interpolate_for_grid_factor(
+            col("RESIDUAL_MATURITY_CAPPED"),
+            col("tenor"),
+            col("grid_factor"),
+        ),
+    )
+
+    interpolated = interpolated.withColumn(
+        "RESIDUAL_MATURITY_CAPPED",
+        spark_round(col("RESIDUAL_MATURITY_CAPPED"), 5),
+    )
+
+    # Deduplicate and prepare grid factors
+    grid_factors = (
+        interpolated.select(*requisite_cols, "interpolated_grid_factor")
+        .dropDuplicates()
+        .withColumnRenamed("interpolated_grid_factor", "grid_factors")
+    )
+    grid_factors = grid_factors.withColumn(
+        "grid_factors", spark_round(col("grid_factors"), 5)
+    )
+
+    # Merge grid factors back into tcdr
+    tcdr = tcdr.withColumn(
+        "RESIDUAL_MATURITY_CAPPED", spark_round(col("RESIDUAL_MATURITY_CAPPED"), 5)
+    ).join(grid_factors, on=requisite_cols, how="left")
+
+    # Calculate RIC
+    tcdr = tcdr.withColumn(
+        "RIC", col("EAD_USD") * col("ADJ_LGD") * col("grid_factors")
+    ).withColumn("RESIDUAL_MATURITY", col("RESIDUAL_MATURITY_CAPPED"))
+
+    return tcdr
